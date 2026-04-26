@@ -1,0 +1,207 @@
+export const stations = [
+  {
+    id: "st-101",
+    name: "Lakeview Hypercharge Deck",
+    city: "Bhopal",
+    location: "VIP Road, Bhopal",
+    address: "VIP Road Waterfront Plaza, Bhopal",
+    distanceKm: 2.4,
+    availability: "Available",
+    chargerTypes: ["CCS2", "Type 2", "CHAdeMO"],
+    connectors: 12,
+    pricePerKwh: 14,
+    rating: 4.8,
+    powerOutput: "180 kW",
+    openHours: "Open 24/7",
+    amenities: ["Cafe", "Lounge", "Restrooms", "Security"],
+    image:
+      "https://images.unsplash.com/photo-1617788138017-80ad40651399?auto=format&fit=crop&w=1200&q=80",
+    lat: 23.2413,
+    lng: 77.3821,
+    recommended: true,
+    zone: "Bhopal Core",
+  },
+  {
+    id: "st-102",
+    name: "Arera Charge Studio",
+    city: "Bhopal",
+    location: "Arera Colony, Bhopal",
+    address: "E-5 Commercial Arcade, Arera Colony, Bhopal",
+    distanceKm: 4.1,
+    availability: "Busy",
+    chargerTypes: ["CCS2", "GB/T"],
+    connectors: 8,
+    pricePerKwh: 13,
+    rating: 4.4,
+    powerOutput: "120 kW",
+    openHours: "6:00 AM - 11:00 PM",
+    amenities: ["Coffee Bar", "Workspace"],
+    image:
+      "https://images.unsplash.com/photo-1593941707882-a56bbc8dfd3a?auto=format&fit=crop&w=1200&q=80",
+    lat: 23.2227,
+    lng: 77.4339,
+    recommended: false,
+    zone: "Arera",
+  },
+  {
+    id: "st-103",
+    name: "Indore Orbit Fast Hub",
+    city: "Indore",
+    location: "Vijay Nagar, Indore",
+    address: "Scheme 54 Mobility Court, Vijay Nagar, Indore",
+    distanceKm: 7.3,
+    availability: "Available",
+    chargerTypes: ["Type 2", "CCS2"],
+    connectors: 16,
+    pricePerKwh: 15,
+    rating: 4.7,
+    powerOutput: "150 kW",
+    openHours: "Open 24/7",
+    amenities: ["Food Court", "Restrooms", "Parking"],
+    image:
+      "https://images.unsplash.com/photo-1519583272095-6433daf26b8e?auto=format&fit=crop&w=1200&q=80",
+    lat: 22.7533,
+    lng: 75.8937,
+    recommended: true,
+    zone: "Vijay Nagar",
+  },
+  {
+    id: "st-104",
+    name: "Rajwada Charge Court",
+    city: "Indore",
+    location: "Rajwada, Indore",
+    address: "Historic Core Plaza, Rajwada, Indore",
+    distanceKm: 10.2,
+    availability: "Low Availability",
+    chargerTypes: ["CCS2", "Type 2"],
+    connectors: 6,
+    pricePerKwh: 12,
+    rating: 4.2,
+    powerOutput: "90 kW",
+    openHours: "6:00 AM - 10:00 PM",
+    amenities: ["Convenience Store", "CCTV"],
+    image:
+      "https://images.unsplash.com/photo-1492144534655-ae79c964c9d7?auto=format&fit=crop&w=1200&q=80",
+    lat: 22.7196,
+    lng: 75.8577,
+    recommended: false,
+    zone: "Rajwada",
+  },
+  {
+    id: "st-105",
+    name: "Ujjain Temple Route Charge",
+    city: "Ujjain",
+    location: "Nanakheda, Ujjain",
+    address: "Transit Spine, Nanakheda Square, Ujjain",
+    distanceKm: 13.5,
+    availability: "Available",
+    chargerTypes: ["CCS2", "Type 2", "Tesla"],
+    connectors: 10,
+    pricePerKwh: 11,
+    rating: 4.6,
+    powerOutput: "200 kW",
+    openHours: "Open 24/7",
+    amenities: ["Retail Zone", "Wi-Fi", "Restrooms"],
+    image:
+      "https://images.unsplash.com/photo-1549399542-7e3f8b79c341?auto=format&fit=crop&w=1200&q=80",
+    lat: 23.1987,
+    lng: 75.7919,
+    recommended: true,
+    zone: "Nanakheda",
+  },
+];
+
+export const initialUsers = [
+  {
+    id: "usr-100",
+    name: "Aarav Sharma",
+    email: "aarav@yatramitra.com",
+    phone: "+91 98765 43210",
+    city: "Bhopal",
+    vehicleModel: "Tata Nexon EV",
+    vehicleNumber: "MP04EV2026",
+    membership: "Pro Driver",
+  },
+];
+
+export const initialBookings = [
+  {
+    id: "bk-5001",
+    stationId: "st-101",
+    stationName: "Lakeview Hypercharge Deck",
+    date: "2026-04-23",
+    slot: "09:00 - 10:00",
+    status: "Confirmed",
+    chargerType: "CCS2",
+    amount: 336,
+  },
+  {
+    id: "bk-5002",
+    stationId: "st-103",
+    stationName: "Indore Orbit Fast Hub",
+    date: "2026-04-24",
+    slot: "18:30 - 19:30",
+    status: "Upcoming",
+    chargerType: "Type 2",
+    amount: 285,
+  },
+  {
+    id: "bk-5003",
+    stationId: "st-105",
+    stationName: "Ujjain Temple Route Charge",
+    date: "2026-04-19",
+    slot: "07:00 - 08:00",
+    status: "Completed",
+    chargerType: "CCS2",
+    amount: 308,
+  },
+];
+
+export const recentActivity = [
+  {
+    id: "ac-1",
+    title: "Booking confirmed at Lakeview Hypercharge Deck",
+    description: "Fast CCS2 slot locked for tomorrow at 09:00 AM.",
+    time: "2 hours ago",
+    type: "booking",
+  },
+  {
+    id: "ac-2",
+    title: "Route recommendation refreshed",
+    description: "A better-value station in Indore was ranked higher for your next trip.",
+    time: "4 hours ago",
+    type: "recommendation",
+  },
+  {
+    id: "ac-3",
+    title: "Profile updated",
+    description: "Vehicle details were synced to improve charger matching across Madhya Pradesh.",
+    time: "Yesterday",
+    type: "profile",
+  },
+];
+
+export const availableCities = ["All Cities", "Bhopal", "Indore", "Ujjain"];
+
+export const availabilityOptions = ["All Status", "Available", "Busy", "Low Availability"];
+
+export const chargerTypeOptions = ["CCS2", "Type 2", "CHAdeMO", "GB/T", "Tesla"];
+
+export const defaultSlots = [
+  "06:00 - 07:00",
+  "07:00 - 08:00",
+  "08:00 - 09:00",
+  "09:00 - 10:00",
+  "10:00 - 11:00",
+  "11:00 - 12:00",
+  "04:00 - 05:00 PM",
+  "05:00 - 06:00 PM",
+  "06:00 - 07:00 PM",
+  "07:00 - 08:00 PM",
+];
+
+export const defaultUserLocation = {
+  label: "TT Nagar, Bhopal",
+  lat: 23.2336,
+  lng: 77.3998,
+};
