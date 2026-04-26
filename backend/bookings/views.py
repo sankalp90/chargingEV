@@ -6,7 +6,7 @@ from rest_framework.response import Response
 from .models import Booking
 from .serializers import BookingSerializer, BookingCreateSerializer
 
-
+# 600000000m
 class BookingListCreateView(generics.ListCreateAPIView):
     permission_classes = [IsAuthenticated]
 
