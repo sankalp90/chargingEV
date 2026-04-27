@@ -2,6 +2,7 @@ import { apiConfig, buildAuthHeaders } from "./apiClient";
 import { readJson, writeJson } from "./storage";
 
 const SESSION_KEY = "ev-session";
+const REFRESH_SKEW_SECONDS = 45;
 
 const request = async (path, options = {}) => {
   const response = await fetch(`${apiConfig.baseUrl}${path}`, {
@@ -38,22 +39,68 @@ const request = async (path, options = {}) => {
   return data;
 };
 
-const saveSession = (user, token) => {
-  const session = { token, user };
+const saveSession = (user, token, refreshToken = null) => {
+  const current = readJson(SESSION_KEY, null);
+  const session = { token, user, refreshToken: refreshToken ?? current?.refreshToken ?? null };
   writeJson(SESSION_KEY, session);
   return session;
 };
 
 export const getStoredToken = () => readJson(SESSION_KEY, null)?.token ?? null;
+export const getStoredRefreshToken = () => readJson(SESSION_KEY, null)?.refreshToken ?? null;
 
 export const getCurrentUser = () => readJson(SESSION_KEY, null)?.user ?? null;
+
+const decodeJwtPayload = (token) => {
+  try {
+    const payloadPart = token.split(".")[1];
+    if (!payloadPart) return null;
+    const json = atob(payloadPart.replace(/-/g, "+").replace(/_/g, "/"));
+    return JSON.parse(json);
+  } catch {
+    return null;
+  }
+};
+
+const isTokenNearExpiry = (token) => {
+  const payload = decodeJwtPayload(token);
+  if (!payload?.exp) return false;
+  const now = Math.floor(Date.now() / 1000);
+  return payload.exp - now <= REFRESH_SKEW_SECONDS;
+};
+
+export const refreshAccessToken = async () => {
+  const refreshToken = getStoredRefreshToken();
+  if (!refreshToken) return null;
+  try {
+    const data = await request("/auth/refresh/", {
+      method: "POST",
+      body: JSON.stringify({ refresh: refreshToken }),
+    });
+    const session = readJson(SESSION_KEY, null);
+    if (!session?.user || !data?.access) return null;
+    const nextRefreshToken = data.refresh || refreshToken;
+    return saveSession(session.user, data.access, nextRefreshToken);
+  } catch {
+    logout();
+    return null;
+  }
+};
+
+export const getValidToken = async () => {
+  const token = getStoredToken();
+  if (!token) return null;
+  if (!isTokenNearExpiry(token)) return token;
+  const refreshed = await refreshAccessToken();
+  return refreshed?.token ?? null;
+};
 
 export const login = async ({ email, password }) => {
   const data = await request("/auth/login/", {
     method: "POST",
     body: JSON.stringify({ email, password }),
   });
-  return saveSession(data.user, data.token);
+  return saveSession(data.user, data.token, data.refresh_token);
 };
 
 export const signup = async (payload) => {
@@ -61,7 +108,7 @@ export const signup = async (payload) => {
     method: "POST",
     body: JSON.stringify(payload),
   });
-  return saveSession(data.user, data.token);
+  return saveSession(data.user, data.token, data.refresh_token);
 };
 
 export const googleLogin = async (accessToken) => {
@@ -69,20 +116,30 @@ export const googleLogin = async (accessToken) => {
     method: "POST",
     body: JSON.stringify({ access_token: accessToken }),
   });
-  return saveSession(data.user, data.token);
+  return saveSession(data.user, data.token, data.refresh_token);
 };
 
 export const updateProfile = async (payload) => {
-  const token = getStoredToken();
+  let token = await getValidToken();
   if (!token) {
     throw new Error("Please sign in again to update your profile.");
   }
-
-  const updatedUser = await request("/auth/me/", {
-    method: "PATCH",
-    headers: buildAuthHeaders(token),
-    body: JSON.stringify(payload),
-  });
+  let updatedUser;
+  try {
+    updatedUser = await request("/auth/me/", {
+      method: "PATCH",
+      headers: buildAuthHeaders(token),
+      body: JSON.stringify(payload),
+    });
+  } catch (error) {
+    token = (await refreshAccessToken())?.token ?? null;
+    if (!token) throw error;
+    updatedUser = await request("/auth/me/", {
+      method: "PATCH",
+      headers: buildAuthHeaders(token),
+      body: JSON.stringify(payload),
+    });
+  }
 
   const session = readJson(SESSION_KEY, null);
   writeJson(SESSION_KEY, { ...(session || {}), token, user: updatedUser });

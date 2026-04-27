@@ -1,5 +1,5 @@
 import { apiConfig, buildAuthHeaders } from "./apiClient";
-import { getStoredToken } from "./authService";
+import { getStoredToken, getValidToken, refreshAccessToken } from "./authService";
 import { getOpenChargeStationById, getOpenChargeStations } from "./openChargeService";
 import { getDistanceKm, getRecommendationReason, getStationFitScore } from "../utils/geo";
 
@@ -9,15 +9,35 @@ export const defaultUserLocation = {
   label: "New Delhi (fallback)",
 };
 
+export const defaultDestination = {
+  lat: 28.5355,
+  lng: 77.391,
+  label: "Noida (default destination)",
+};
+
 const request = async (path, options = {}) => {
-  const token = getStoredToken();
-  const response = await fetch(`${apiConfig.baseUrl}${path}`, {
+  let token = await getValidToken();
+  if (!token) token = getStoredToken();
+  let response = await fetch(`${apiConfig.baseUrl}${path}`, {
     ...options,
     headers: {
       ...buildAuthHeaders(token),
       ...(options.headers || {}),
     },
   });
+
+  if (response.status === 401) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed?.token) {
+      response = await fetch(`${apiConfig.baseUrl}${path}`, {
+        ...options,
+        headers: {
+          ...buildAuthHeaders(refreshed.token),
+          ...(options.headers || {}),
+        },
+      });
+    }
+  }
 
   let data = null;
   try {
@@ -194,19 +214,59 @@ export const getStationFilterOptions = async () => {
 };
 
 export const getSmartRecommendations = async (origin = defaultUserLocation, energyNeeded = 24) => {
-  const data = await getMergedStations();
+  const batteryCapacity = 50;
+  const efficiency = 0.15;
+  const estimatedBatteryPercentage = Math.max(15, Math.min(95, Math.round((energyNeeded / batteryCapacity) * 100) + 35));
+  const response = await request("/recommend-charging/", {
+    method: "POST",
+    body: JSON.stringify({
+      current_location: { lat: Number(origin.lat), lng: Number(origin.lng) },
+      destination: { lat: defaultDestination.lat, lng: defaultDestination.lng },
+      battery_percentage: estimatedBatteryPercentage,
+      battery_capacity: batteryCapacity,
+      efficiency,
+    }),
+  });
 
-  return data
-    .map((station) => {
-      const route = getStationFitScore(station, origin, energyNeeded);
-      return {
-        ...station,
-        ...route,
-        matchReason: getRecommendationReason(station, route),
-      };
-    })
-    .sort((left, right) => right.score - left.score)
-    .slice(0, 4);
+  const stations = Array.isArray(response?.recommended_stations) ? response.recommended_stations : [];
+  const sourceLabel = Array.isArray(response?.data_sources?.stations)
+    ? response.data_sources.stations.join("/")
+    : "backend";
+
+  return stations.map((station) => {
+    const distanceKm = Number(station.distance ?? 0);
+    const pricePerKwh = Number(station.cost ?? 20) || 20;
+    const travelMinutes = Math.max(3, Math.round((Number(station.detour_time ?? 0) + distanceKm / 0.55)));
+    const mapped = {
+      id: String(station.id),
+      name: station.name || "Recommended Station",
+      city: "Route suggestion",
+      lat: Number(station.latitude ?? origin.lat),
+      lng: Number(station.longitude ?? origin.lng),
+      distanceKm: Number(distanceKm.toFixed(1)),
+      travelMinutes,
+      chargingCost: Math.round(pricePerKwh * Number(energyNeeded || 0)),
+      score: Math.round(Number(station.score || 0) * 100),
+      rating: Number((3.8 + Number(station.score || 0) * 1.2).toFixed(1)),
+      pricePerKwh,
+      powerOutput: `${Math.round(Number(station.charging_speed || 30))} kW`,
+      availability: station.availability === "available" ? "Available" : "Busy",
+      chargerTypes: ["CCS2"],
+      location: `Detour ${Number(station.detour_time ?? 0).toFixed(1)} min`,
+      address: `Recommendation source: ${sourceLabel}`,
+      image: `https://picsum.photos/seed/reco-${station.id}/960/540`,
+      source: sourceLabel,
+      recommended: true,
+      waitTime: Number(station.wait_time ?? 0),
+      matchReason: `Detour ${Number(station.detour_time ?? 0).toFixed(1)} min, wait ${Number(station.wait_time ?? 0).toFixed(1)} min, battery after reach ${Number(station.battery_after_reach_pct ?? 0).toFixed(1)}%.`,
+    };
+    const route = getStationFitScore(mapped, origin, energyNeeded);
+    return {
+      ...mapped,
+      ...route,
+      matchReason: getRecommendationReason(mapped, route),
+    };
+  });
 };
 
 export const getBestStationForRoute = async ({ origin = defaultUserLocation, energyNeeded = 24 } = {}) => {

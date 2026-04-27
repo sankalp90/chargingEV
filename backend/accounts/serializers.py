@@ -36,6 +36,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def validate(self, attrs):
         data = super().validate(attrs)
         data['token'] = data.pop('access')
-        data.pop('refresh', None)  # Remove refresh if present
+        data['refresh_token'] = data.pop('refresh')
         data['user'] = UserSerializer(self.user).data
         return data

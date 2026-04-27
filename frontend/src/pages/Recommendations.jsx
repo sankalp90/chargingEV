@@ -5,19 +5,44 @@ import StationsLeafletMap from "../components/maps/StationsLeafletMap";
 import Button from "../components/ui/Button";
 import Card from "../components/ui/Card";
 import Loader from "../components/ui/Loader";
-import { getSmartRecommendations } from "../services/stationService";
+import { defaultUserLocation, getSmartRecommendations } from "../services/stationService";
 
 export default function Recommendations({ user, onLogout }) {
   const [recommendations, setRecommendations] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState("");
+  const [origin, setOrigin] = useState(defaultUserLocation);
+  const [locationLabel, setLocationLabel] = useState(
+    typeof navigator !== "undefined" && navigator.geolocation
+      ? "Fetching live location..."
+      : `Using fallback location: ${defaultUserLocation.label}`
+  );
 
   useEffect(() => {
-    getSmartRecommendations()
+    if (!navigator.geolocation) return;
+    navigator.geolocation.getCurrentPosition(
+      (position) => {
+        setOrigin({
+          lat: position.coords.latitude,
+          lng: position.coords.longitude,
+          label: "Live device location",
+        });
+        setLocationLabel("Using your live location");
+      },
+      () => {
+        setLocationLabel(`Using fallback location: ${defaultUserLocation.label}`);
+      },
+      { enableHighAccuracy: true, timeout: 6000 }
+    );
+  }, []);
+
+  useEffect(() => {
+    setLoading(true);
+    getSmartRecommendations(origin)
       .then(setRecommendations)
       .catch((err) => setError(err.message))
       .finally(() => setLoading(false));
-  }, []);
+  }, [origin]);
 
   return (
     <AppShell title="Smart Recommendations" user={user} onLogout={onLogout}>
@@ -26,6 +51,7 @@ export default function Recommendations({ user, onLogout }) {
 
       {!loading ? (
         <div className="space-y-5">
+          <Card className="text-sm text-slate-600">{locationLabel}</Card>
           <Card className="p-0">
             <StationsLeafletMap stations={recommendations} heightClass="h-[360px]" />
           </Card>
