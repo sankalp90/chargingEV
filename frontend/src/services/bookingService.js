@@ -19,19 +19,24 @@ const request = async (path, options = {}) => {
   }
 
   if (!response.ok) {
-    if (typeof data?.detail === "string") {
-      throw new Error(data.detail);
+    const message =
+      (typeof data?.detail === "string" && data.detail) ||
+      (Array.isArray(data?.non_field_errors) && data.non_field_errors[0]) ||
+      (data && typeof data === "object"
+        ? Object.values(data).find((value) => Array.isArray(value) && value.length > 0)?.[0]
+        : null) ||
+      "Booking request failed.";
+
+    const error = new Error(message);
+    error.status = response.status;
+    error.responseData = data;
+    if (Array.isArray(data?.failed_bookings)) {
+      error.failed_bookings = data.failed_bookings;
     }
-    if (Array.isArray(data?.non_field_errors) && data.non_field_errors[0]) {
-      throw new Error(data.non_field_errors[0]);
+    if (typeof data?.retryable === "boolean") {
+      error.retryable = data.retryable;
     }
-    if (data && typeof data === "object") {
-      const fieldErrors = Object.values(data).find((value) => Array.isArray(value) && value.length > 0);
-      if (fieldErrors) {
-        throw new Error(fieldErrors[0]);
-      }
-    }
-    throw new Error("Booking request failed.");
+    throw error;
   }
 
   return data;
@@ -46,12 +51,20 @@ const normalizeBooking = (booking) => ({
 });
 
 const toNumericStationId = (stationId) => {
-  if (typeof stationId === "number") return stationId;
+  const normalizeSafeInt = (value) => {
+    const numeric = Number(value);
+    if (!Number.isFinite(numeric)) return NaN;
+    // Keep IDs within a conservative 32-bit positive range for backend PK compatibility.
+    const safeRange = 2_000_000_000;
+    const normalized = Math.abs(Math.trunc(numeric)) % safeRange;
+    return normalized || 1;
+  };
+
+  if (typeof stationId === "number") return normalizeSafeInt(stationId);
   if (typeof stationId === "string" && stationId.startsWith("ocm-")) {
-    const parsed = Number(stationId.replace("ocm-", ""));
-    return Number.isFinite(parsed) ? parsed : NaN;
+    return normalizeSafeInt(stationId.replace("ocm-", ""));
   }
-  return Number(stationId);
+  return normalizeSafeInt(stationId);
 };
 
 const importStation = async (stationSnapshot, stationId) => {
@@ -75,6 +88,9 @@ const importStation = async (stationSnapshot, stationId) => {
 
   return imported.id;
 };
+
+export const ensureBackendStationId = async (stationId, stationSnapshot) =>
+  importStation(stationSnapshot, stationId);
 
 export const getBookings = async () => {
   const data = await request("/bookings/");
@@ -101,4 +117,14 @@ export const createBooking = async (payload) => {
     }),
   });
   return normalizeBooking(data);
+};
+
+export const createBulkBooking = async ({ bookings = [], allowPartial = false } = {}) => {
+  if (!Array.isArray(bookings) || !bookings.length) {
+    throw new Error("No bookings provided.");
+  }
+  return request("/bookings/bulk/", {
+    method: "POST",
+    body: JSON.stringify({ bookings, allow_partial: allowPartial }),
+  });
 };

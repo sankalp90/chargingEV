@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import AppShell from "../components/AppShell";
+import RoutePlanner from "../components/RoutePlanner";
 import StationsLeafletMap from "../components/maps/StationsLeafletMap";
 import StationCard from "../components/StationCard";
 import Card from "../components/ui/Card";
@@ -51,6 +52,8 @@ export default function Stations({ user, onLogout }) {
   return (
     <AppShell title="Charging Stations" user={user} onLogout={onLogout}>
       <div className="space-y-6">
+        <RoutePlanner />
+
         <Card>
           <div className="grid gap-4 md:grid-cols-3">
             <Input label="Search" placeholder="Search by station, city, or address" value={filters.search} onChange={updateFilter("search")} />
