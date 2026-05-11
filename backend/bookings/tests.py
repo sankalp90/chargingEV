@@ -32,9 +32,20 @@ class BookingAPITestCase(APITestCase):
             charger_types=['CCS2', 'Type 2'],
             price_per_unit='18.50',
         )
+        self.station_alt = EVStation.objects.create(
+            name='Noida Backup Charger',
+            city='Noida',
+            latitude='28.536200',
+            longitude='77.392000',
+            total_slots=3,
+            available_slots=3,
+            charger_types=['CCS2'],
+            price_per_unit='19.00',
+        )
         self.tomorrow = date.today() + timedelta(days=1)
         self.client.force_authenticate(user=self.user)
         self.list_create_url = reverse('bookings:booking-list-create')
+        self.bulk_create_url = reverse('bookings:booking-bulk-create')
 
     def booking_payload(self, **overrides):
         payload = {
@@ -159,3 +170,124 @@ class BookingAPITestCase(APITestCase):
         self.assertEqual(Booking.objects.count(), 1)
         self.station.refresh_from_db()
         self.assertEqual(self.station.available_slots, 1)
+
+    def test_bulk_booking_create_success(self):
+        payload = [
+            {
+                "station_id": self.station.id,
+                "slot_id": "10:00 - 11:00",
+                "start_time": f"{self.tomorrow.isoformat()}T10:00:00",
+                "end_time": f"{self.tomorrow.isoformat()}T11:00:00",
+                "charger_type": "CCS2",
+                "energy_needed": "8.00",
+                "vehicle_number": "UP16EV2026",
+            },
+            {
+                "station_id": self.station.id,
+                "slot_id": "11:00 - 12:00",
+                "start_time": f"{self.tomorrow.isoformat()}T11:00:00",
+                "end_time": f"{self.tomorrow.isoformat()}T12:00:00",
+                "charger_type": "Type 2",
+                "energy_needed": "6.00",
+                "vehicle_number": "UP16EV2026",
+            },
+        ]
+        response = self.client.post(self.bulk_create_url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_201_CREATED)
+        self.assertTrue(response.data["success"])
+        self.assertEqual(len(response.data["booking_ids"]), 2)
+        self.assertEqual(Booking.objects.count(), 2)
+        self.station.refresh_from_db()
+        self.assertEqual(self.station.available_slots, 0)
+
+    def test_bulk_booking_rollback_when_any_booking_fails(self):
+        Booking.objects.create(
+            user=self.other_user,
+            station=self.station,
+            date=self.tomorrow,
+            slot='10:00 - 11:00',
+            charger_type='CCS2',
+            energy_needed='5.00',
+            vehicle_number='DL01EV0001',
+            notes='',
+            status='Confirmed',
+            amount='92.50',
+        )
+        payload = [
+            {
+                "station_id": self.station.id,
+                "slot_id": "10:00 - 11:00",
+                "start_time": f"{self.tomorrow.isoformat()}T10:00:00",
+                "end_time": f"{self.tomorrow.isoformat()}T11:00:00",
+            },
+            {
+                "station_id": self.station.id,
+                "slot_id": "11:00 - 12:00",
+                "start_time": f"{self.tomorrow.isoformat()}T11:00:00",
+                "end_time": f"{self.tomorrow.isoformat()}T12:00:00",
+            },
+        ]
+
+        before_count = Booking.objects.count()
+        response = self.client.post(self.bulk_create_url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertFalse(response.data["success"])
+        self.assertEqual(Booking.objects.count(), before_count)
+        self.station.refresh_from_db()
+        self.assertEqual(self.station.available_slots, 2)
+
+    def test_bulk_booking_returns_alternatives_when_unavailable(self):
+        self.station.available_slots = 0
+        self.station.save(update_fields=["available_slots"])
+        payload = {
+            "bookings": [
+                {
+                    "station_id": self.station.id,
+                    "slot_id": "10:00 - 11:00",
+                    "start_time": f"{self.tomorrow.isoformat()}T10:00:00",
+                    "end_time": f"{self.tomorrow.isoformat()}T11:00:00",
+                }
+            ]
+        }
+        response = self.client.post(self.bulk_create_url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_409_CONFLICT)
+        self.assertFalse(response.data["success"])
+        self.assertTrue(response.data["failed_bookings"])
+        alternatives = response.data["failed_bookings"][0].get("alternatives", [])
+        self.assertTrue(any(item["station_id"] == self.station_alt.id for item in alternatives))
+
+    def test_bulk_booking_allow_partial_creates_only_valid_items(self):
+        Booking.objects.create(
+            user=self.other_user,
+            station=self.station,
+            date=self.tomorrow,
+            slot='10:00 - 11:00',
+            charger_type='CCS2',
+            energy_needed='5.00',
+            vehicle_number='DL01EV0001',
+            notes='',
+            status='Confirmed',
+            amount='92.50',
+        )
+        payload = {
+            "allow_partial": True,
+            "bookings": [
+                {
+                    "station_id": self.station.id,
+                    "slot_id": "10:00 - 11:00",
+                    "start_time": f"{self.tomorrow.isoformat()}T10:00:00",
+                    "end_time": f"{self.tomorrow.isoformat()}T11:00:00",
+                },
+                {
+                    "station_id": self.station.id,
+                    "slot_id": "11:00 - 12:00",
+                    "start_time": f"{self.tomorrow.isoformat()}T11:00:00",
+                    "end_time": f"{self.tomorrow.isoformat()}T12:00:00",
+                },
+            ],
+        }
+        response = self.client.post(self.bulk_create_url, payload, format='json')
+        self.assertEqual(response.status_code, status.HTTP_207_MULTI_STATUS)
+        self.assertTrue(response.data["success"])
+        self.assertTrue(response.data["partial"])
+        self.assertEqual(len(response.data["booking_ids"]), 1)

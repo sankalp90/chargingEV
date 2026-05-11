@@ -213,6 +213,53 @@ export const getStationFilterOptions = async () => {
   };
 };
 
+export const getStationsAlongRoute = async ({ routeCoordinates = [], radiusKm = 5 } = {}) => {
+  if (!Array.isArray(routeCoordinates) || routeCoordinates.length < 2) {
+    return [];
+  }
+
+  const data = await request("/stations/along-route/", {
+    method: "POST",
+    body: JSON.stringify({
+      route_coordinates: routeCoordinates,
+      radius: radiusKm,
+    }),
+  });
+
+  if (!Array.isArray(data)) return [];
+
+  return data.map((station) => ({
+    station_id: station.station_id,
+    name: station.name || "Unknown Station",
+    location: {
+      lat: Number(station.location?.lat ?? 0),
+      lng: Number(station.location?.lng ?? 0),
+    },
+    distance_from_route: Number(station.distance_from_route ?? 0),
+  }))
+    .filter((station) => Number.isFinite(station.location.lat) && Number.isFinite(station.location.lng));
+};
+
+export const getBulkStationAvailability = async ({
+  stationIds = [],
+  estimatedArrivalTimes = [],
+  windowMinutes = 60,
+} = {}) => {
+  if (!stationIds.length) return [];
+
+  const data = await request("/stations/bulk-availability/", {
+    method: "POST",
+    body: JSON.stringify({
+      station_ids: stationIds,
+      estimated_arrival_times: estimatedArrivalTimes,
+      window_minutes: windowMinutes,
+    }),
+  });
+
+  if (!Array.isArray(data)) return [];
+  return data;
+};
+
 export const getSmartRecommendations = async (origin = defaultUserLocation, energyNeeded = 24) => {
   const batteryCapacity = 50;
   const efficiency = 0.15;

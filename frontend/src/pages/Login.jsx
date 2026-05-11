@@ -4,7 +4,7 @@ import BrandMark from "../components/BrandMark";
 import Button from "../components/ui/Button";
 import Input from "../components/ui/Input";
 import SocialButton from "../components/ui/SocialButton";
-import { GithubIcon, GoogleIcon, MicrosoftIcon } from "../components/ui/Icons";
+import {GoogleIcon} from "../components/ui/Icons";
 
 const initialCredentials = {
   email: "",
@@ -132,8 +132,6 @@ const Login = ({ token, onLogin, onGoogleLogin }) => {
 
               <div className="grid gap-4">
                 <SocialButton icon={<GoogleIcon />} text="Continue with Google" onClick={handleGoogleSignIn} />
-                <SocialButton icon={<MicrosoftIcon />} text="Continue with Microsoft" />
-                <SocialButton icon={<GithubIcon />} text="Continue with GitHub" />
               </div>
 
               <p className="text-center text-sm text-slate-500">
