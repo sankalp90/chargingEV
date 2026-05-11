@@ -1,15 +1,29 @@
 import { apiConfig, buildAuthHeaders } from "./apiClient";
-import { getStoredToken } from "./authService";
+import { getStoredToken, getValidToken, refreshAccessToken } from "./authService";
 
 const request = async (path, options = {}) => {
-  const token = getStoredToken();
-  const response = await fetch(`${apiConfig.baseUrl}${path}`, {
+  let token = await getValidToken();
+  if (!token) token = getStoredToken();
+  let response = await fetch(`${apiConfig.baseUrl}${path}`, {
     ...options,
     headers: {
       ...buildAuthHeaders(token),
       ...(options.headers || {}),
     },
   });
+
+  if (response.status === 401) {
+    const refreshed = await refreshAccessToken();
+    if (refreshed?.token) {
+      response = await fetch(`${apiConfig.baseUrl}${path}`, {
+        ...options,
+        headers: {
+          ...buildAuthHeaders(refreshed.token),
+          ...(options.headers || {}),
+        },
+      });
+    }
+  }
 
   let data = null;
   try {

@@ -1,6 +1,7 @@
 from django.urls import path
 
 from .views import (
+    RecommendChargingView,
     StationListView,
     StationDetailView,
     available_slots,
@@ -13,6 +14,7 @@ app_name = 'stations'
 
 urlpatterns = [
     path('', StationListView.as_view(), name='station-list'),
+    path('recommend-charging/', RecommendChargingView.as_view(), name='recommend-charging'),
     path('along-route/', stations_along_route, name='stations-along-route'),
     path('bulk-availability/', bulk_station_availability, name='stations-bulk-availability'),
     path('<int:pk>/', StationDetailView.as_view(), name='station-detail'),

@@ -17,11 +17,13 @@ Including another URLconf
 from django.contrib import admin
 from django.urls import path, include
 from dashboard.views import recommendations_view
+from stations.views import RecommendChargingView
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/auth/', include('accounts.urls', namespace='accounts')),
     path('api/stations/', include('stations.urls', namespace='stations')),
+    path('api/recommend-charging/', RecommendChargingView.as_view(), name='recommend-charging-root'),
     path('api/bookings/', include('bookings.urls', namespace='bookings')),
     path('api/dashboard/', include('dashboard.urls', namespace='dashboard')),
     path('api/recommendations/', recommendations_view, name='recommendations-root'),

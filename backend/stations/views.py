@@ -13,7 +13,8 @@ from rest_framework.views import APIView
 
 from bookings.models import Booking
 from .models import EVStation
-from .serializers import StationSerializer
+from .recommendation_engine import ChargingRecommendationEngine
+from .serializers import RecommendChargingRequestSerializer, StationSerializer
 from services.station_aggregator import get_all_stations, stable_numeric_id
 
 EARTH_RADIUS_KM = 6371.0
@@ -196,6 +197,19 @@ class StationListView(APIView):
 class StationDetailView(generics.RetrieveAPIView):
     queryset = EVStation.objects.all()
     serializer_class = StationSerializer
+
+
+class RecommendChargingView(APIView):
+    """
+    POST /api/stations/recommend-charging/
+    """
+    engine = ChargingRecommendationEngine()
+
+    def post(self, request):
+        serializer = RecommendChargingRequestSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        result = self.engine.recommend(serializer.validated_data)
+        return Response(result, status=status.HTTP_200_OK)
 
 
 @api_view(['GET'])
